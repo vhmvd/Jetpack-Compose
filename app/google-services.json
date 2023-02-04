@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "662029957617",
+    "project_id": "in-track-app-47cb1",
+    "storage_bucket": "in-track-app-47cb1.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:662029957617:android:8d46071cf41740a46d6c50",
+        "android_client_info": {
+          "package_name": "com.example.intrack.debug"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "662029957617-hbfkj7ql6lovp3oct8115vmt7716ttll.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.intrack.debug",
+            "certificate_hash": "820fbaff054bea0408bf8a4fd840a79d5d079bb7"
+          }
+        },
+        {
+          "client_id": "662029957617-ok2m8ldvalbegbuu7clbekj0vb8gilsi.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBYJ8-xwgXzaiI9jC40AwBiJbt6tMATNCo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "662029957617-ok2m8ldvalbegbuu7clbekj0vb8gilsi.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "662029957617-mtq4r9993g6vhqt92h501rqjrg7hinat.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "co.intrack.flashChat"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
