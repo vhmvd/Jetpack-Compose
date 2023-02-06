@@ -1,8 +1,19 @@
 package com.example.intrack
 
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
+import android.util.Size
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -13,83 +24,47 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.tooling.preview.Devices
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.airbnb.lottie.compose.*
-import com.example.intrack.ui.AppViewModel
 import com.example.intrack.ui.InTrackAppBar
 import com.example.intrack.ui.InTrackScreen
 import com.example.intrack.ui.theme.InTrackTheme
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
-import com.google.firebase.auth.ktx.auth
-import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 //    private lateinit var viewModel: AppViewModel
 
-    @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            val firebase = FirebaseAuth.getInstance()
-            val currentUser = firebase.currentUser
             InTrackTheme {
-                // A surface container using the 'background' color from the theme
-                Surface(
-                    modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background
-                ) {
-                    if (currentUser == null) {
-                        LogInOrSignUpScreen()
-                    } else {
-                        val snackbarHostState = remember { SnackbarHostState() }
-                        Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }, topBar = {
-                            InTrackAppBar(currentScreen = InTrackScreen.Home,
-                                canNavigateBack = false,
-                                navigateUp = { })
-                        }, bottomBar = {
-                            var selectedItem by remember { mutableStateOf(0) }
-                            val items = listOf("Home", "Notifications")
-
-                            NavigationBar {
-                                items.forEachIndexed { index, item ->
-                                    NavigationBarItem(icon = {
-                                        Icon(
-                                            if (index == 0) {
-                                                Icons.Filled.Home
-                                            } else {
-                                                Icons.Filled.Notifications
-                                            }, contentDescription = item
-                                        )
-                                    },
-                                        label = { Text(item) },
-                                        selected = selectedItem == index,
-                                        onClick = { selectedItem = index })
-                                }
-                            }
-                        }, content = { paddingValues ->
-                            paddingValues
-                        })
-                    }
-                }
+                NormalFlow()
             }
         }
+    }
+
+    private fun restartApp() {
+        val intent = Intent(this, MainActivity::class.java)
+        this.startActivity(intent)
+        finishAffinity()
     }
 }
 
@@ -102,23 +77,195 @@ fun NormalFlow() {
 }
 
 @Composable
+fun AssetInfoScreen(data: String) {
+    val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.scan))
+    val progress by animateLottieCompositionAsState(composition = composition)
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.Top,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        LottieAnimation(
+            composition = composition,
+            progress = { progress },
+            alignment = Alignment.Center,
+            modifier = Modifier.size(400.dp)
+        )
+        Text(text = data, fontStyle = FontStyle.Normal, fontWeight = FontWeight.W700)
+    }
+}
+
+@Composable
+fun QRCodeScanner(onReadQR: (String) -> Unit) {
+    var code by remember {
+        mutableStateOf("")
+    }
+    var hasReadCode by remember {
+        mutableStateOf(false)
+    }
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val cameraProviderFeature = remember {
+        ProcessCameraProvider.getInstance(context)
+    }
+    var hasCamPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(
+                context, android.Manifest.permission.CAMERA
+            ) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    val launcher =
+        rememberLauncherForActivityResult(contract = ActivityResultContracts.RequestPermission(),
+            onResult = { granted ->
+                hasCamPermission = granted
+            })
+    LaunchedEffect(key1 = true) {
+        launcher.launch(android.Manifest.permission.CAMERA)
+    }
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        if (hasCamPermission) {
+            AndroidView(factory = { context ->
+                val previewView = PreviewView(context)
+                val preview = Preview.Builder().build()
+                val selector =
+                    CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_BACK)
+                        .build()
+                preview.setSurfaceProvider(previewView.surfaceProvider)
+                val imageAnalysis = ImageAnalysis.Builder().setTargetResolution(
+                    Size(
+                        previewView.width, previewView.height
+                    )
+                ).setBackpressureStrategy(STRATEGY_KEEP_ONLY_LATEST).build()
+                imageAnalysis.setAnalyzer(
+                    ContextCompat.getMainExecutor(context), QRCode(onReadQR)
+                )
+                try {
+                    cameraProviderFeature.get().bindToLifecycle(
+                        lifecycleOwner, selector, preview, imageAnalysis
+                    )
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+                previewView
+            })
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 fun NavGraph(navController: NavHostController) {
+    val firebase = FirebaseAuth.getInstance()
+    val currentUser = firebase.currentUser
+    val destination = currentUser?.let { "home" } ?: "login"
     NavHost(
-        navController = navController,
-        startDestination = "login"
+        navController = navController, startDestination = destination
     ) {
         composable(route = "login") {
-            //call LoginScreen composable function here
+            Surface(
+                modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background
+            ) {
+                LogInOrSignUpScreen(navController)
+            }
+        }
+
+        composable(route = "qr") {
+            QRCodeScanner {
+                navController.navigateUp()
+                navController.navigate(route = "info/$it")
+            }
+        }
+
+        composable(route = "info/{data}") {
+            val data = it.arguments?.getString("data") ?: "Error reading the QR."
+            AssetInfoScreen(data)
         }
 
         composable(route = "home") {
-            //call HomeScreen composable function here
+            val snackbarHostState = remember { SnackbarHostState() }
+            Surface(
+                modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background
+            ) {
+                Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }, topBar = {
+                    InTrackAppBar(currentScreen = InTrackScreen.Home,
+                        canNavigateBack = false,
+                        navigateUp = { },
+                        logout = {
+                            FirebaseAuth.getInstance().signOut()
+                            navController.navigate("login") {
+                                popUpTo("home") {
+                                    inclusive = true
+                                }
+                            }
+                        })
+                }, bottomBar = {
+                    var selectedItem by remember { mutableStateOf(0) }
+                    val items = listOf("Home", "Notifications")
+
+                    NavigationBar {
+                        items.forEachIndexed { index, item ->
+                            NavigationBarItem(icon = {
+                                Icon(
+                                    if (index == 0) {
+                                        Icons.Filled.Home
+                                    } else {
+                                        Icons.Filled.Notifications
+                                    }, contentDescription = item
+                                )
+                            },
+                                label = { Text(item) },
+                                selected = selectedItem == index,
+                                onClick = { selectedItem = index })
+                        }
+                    }
+                }, content = { paddingValues ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues)
+                            .padding(horizontal = 16.dp)
+                    ) {
+                        HomeContent(onScanQR = {
+                            navController.navigate("qr")
+                        })
+                    }
+                })
+            }
         }
     }
 }
 
 @Composable
-fun LogInOrSignUpScreen() {
+fun HomeContent(onScanQR: () -> Unit) {
+    Button(
+        onClick = onScanQR, modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp)
+    ) {
+        Text(text = "Scar QR code")
+    }
+
+    Button(
+        onClick = { /*TODO*/ }, modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+    ) {
+        Text(text = "Add assets")
+    }
+
+    Row() {
+
+    }
+}
+
+@Composable
+fun LogInOrSignUpScreen(navController: NavHostController) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isPasswordVisible by remember { mutableStateOf(false) }
@@ -181,7 +328,11 @@ fun LogInOrSignUpScreen() {
                         .addOnCompleteListener {
                             loading = false
                             if (it.isSuccessful) {
-                                // Login successful, navigate to main activity
+                                navController.navigate("home") {
+                                    popUpTo("login") {
+                                        inclusive = true
+                                    }
+                                }
                             } else {
                                 scope.launch {
                                     snackbarHostState.showSnackbar(
@@ -249,10 +400,4 @@ fun EmailTextField(email: String, onTextChanged: (String) -> Unit) {
         label = { Text(text = "Email") },
         modifier = Modifier.fillMaxWidth()
     )
-}
-
-@Preview(showBackground = true, device = Devices.PIXEL_4)
-@Composable
-fun DefaultPreview() {
-    LogInOrSignUpScreen()
 }
