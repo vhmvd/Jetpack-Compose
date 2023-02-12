@@ -1,4 +1,4 @@
-package com.example.intrack
+package com.example.intrack.ui.camera
 
 import android.graphics.ImageFormat
 import androidx.camera.core.ImageAnalysis
