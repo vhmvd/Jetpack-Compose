@@ -1,12 +1,8 @@
 package com.example.intrack
 
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
-import android.graphics.ImageDecoder
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
-import android.provider.MediaStore
 import android.util.Log
 import android.util.Size
 import androidx.activity.ComponentActivity
@@ -35,9 +31,7 @@ import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -51,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -65,13 +60,12 @@ import com.example.intrack.ui.camera.QRCode
 import com.example.intrack.ui.theme.InTrackTheme
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
-import com.google.zxing.BarcodeFormat
-import com.google.zxing.qrcode.QRCodeWriter
 import kotlinx.coroutines.launch
+
 
 class MainActivity : ComponentActivity() {
 
-    val viewModel = AppViewModel()
+    private val viewModel by lazy { ViewModelProvider(this)[AppViewModel::class.java] }
     var photoSelected = mutableStateOf(false)
     var name = mutableStateOf("")
     var address = mutableStateOf("")
@@ -392,7 +386,7 @@ class MainActivity : ComponentActivity() {
                     .padding(8.dp)
             )
             Image(
-                bitmap = getQrCodeBitmap(name.value),
+                bitmap = viewModel.getQrCodeBitmap(name.value),
                 contentDescription = "QR",
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
@@ -400,47 +394,16 @@ class MainActivity : ComponentActivity() {
             )
             Button(
                 onClick = {
-                    var bitmap: Bitmap? = null
-                    try {
-                        bitmap = if (Build.VERSION.SDK_INT < 28) {
-                            MediaStore.Images.Media.getBitmap(contentResolver, uri)
-                        } else {
-                            uri?.let {
-                                ImageDecoder.decodeBitmap(
-                                    ImageDecoder.createSource(
-                                        contentResolver, it
-                                    )
-                                )
-                            }
-                        }
-                        bitmap?.asImageBitmap()?.let {
-                            viewModel.uploadAsset(
-                                assetName = name.value,
-                                address = address.value,
-                                image = null,
-                                quantity = quantity.value
-                            )
-                        }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
+                    val inputStream = uri?.let { contentResolver.openInputStream(it) }
+                    if (inputStream != null) {
+                        viewModel.uploadAsset(name.value, address.value, quantity.value, inputStream)
                     }
+
                 }, modifier = Modifier.padding(16.dp)
             ) {
                 Text(text = "Confirm Save")
             }
         }
-    }
-
-    private fun getQrCodeBitmap(content: String): ImageBitmap {
-        val size = 320 //pixels
-        val bits = QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, size, size)
-        return Bitmap.createBitmap(size, size, Bitmap.Config.RGB_565).also {
-            for (x in 0 until size) {
-                for (y in 0 until size) {
-                    it.setPixel(x, y, if (bits[x, y]) 0x000000 else 0xFFFFFF)
-                }
-            }
-        }.asImageBitmap()
     }
 
     @OptIn(ExperimentalMaterial3Api::class)
@@ -461,7 +424,7 @@ class MainActivity : ComponentActivity() {
                 .fillMaxWidth()
                 .padding(vertical = 16.dp)
         ) {
-            Text(text = "Scar QR code")
+            Text(text = "Scan QR Code")
         }
 
         Button(
@@ -469,7 +432,15 @@ class MainActivity : ComponentActivity() {
                 .fillMaxWidth()
                 .padding(vertical = 8.dp)
         ) {
-            Text(text = "Add assets")
+            Text(text = "Add Assets")
+        }
+
+        Button(
+            onClick = { /* TODO */ }, modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp)
+        ) {
+            Text(text = "My Assets")
         }
 
         Row() {
