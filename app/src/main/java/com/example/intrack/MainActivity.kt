@@ -21,11 +21,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Modifier
@@ -35,6 +38,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
@@ -42,6 +46,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
@@ -51,8 +56,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import com.airbnb.lottie.compose.*
+import com.example.intrack.model.Asset
 import com.example.intrack.ui.AppViewModel
 import com.example.intrack.ui.InTrackAppBar
 import com.example.intrack.ui.InTrackScreen
@@ -66,12 +73,14 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
 
     private val viewModel by lazy { ViewModelProvider(this)[AppViewModel::class.java] }
-    var photoSelected = mutableStateOf(false)
-    var name = mutableStateOf("")
-    var address = mutableStateOf("")
-    var quantity = mutableStateOf("")
+    private var photoSelected = mutableStateOf(false)
+    private var name = mutableStateOf("")
+    private var address = mutableStateOf("")
+    private var quantity = mutableStateOf("1")
 
-    var uri: Uri? = null
+    private var currentAsset = Asset()
+
+    private var uri: Uri? = null
     private val pickMedia = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) {
         // Callback is invoked after the user selects a media item or closes the
         // photo picker.
@@ -168,6 +177,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 Button(onClick = {
+                    photoSelected.value = false
                     navController.navigateUp()
                     navController.navigate("save")
                 }) {
@@ -340,6 +350,9 @@ class MainActivity : ComponentActivity() {
                                 navController.navigate("qr")
                             }, onAddAsset = {
                                 navController.navigate("add")
+                            }, onMyAssets = {
+                                viewModel.getMyAssets()
+                                navController.navigate("store")
                             })
                         }
                     })
@@ -353,11 +366,114 @@ class MainActivity : ComponentActivity() {
             composable(route = "save") {
                 SaveAsset(navController)
             }
+
+            composable(route = "store") {
+                MyAssets(navController)
+            }
+
+            composable(route = "detail") {
+                AssetDetail()
+            }
+        }
+    }
+
+    @Composable
+    fun AssetDetail(asset: Asset = currentAsset) {
+        Column(
+            verticalArrangement = Arrangement.Top,
+            horizontalAlignment = CenterHorizontally,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+            asset.qr?.let {
+                Image(
+                    bitmap = viewModel.getQrCodeBitmap(it),
+                    contentDescription = "QR",
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .border(2.dp, Color.Black, RoundedCornerShape(8.dp))
+                )
+            }
+            asset.address?.let {
+                Text(text = it.capitalize(), fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+
+    @Composable
+    fun AssetItem(asset: Asset, navController: NavHostController) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    currentAsset = asset
+                    navController.navigate("detail")
+                }, verticalAlignment = Alignment.CenterVertically
+        ) {
+            SubcomposeAsyncImage(
+                loading = {
+                    CircularProgressIndicator()
+                },
+                model = ImageRequest.Builder(LocalContext.current).data(asset.image).crossfade(true)
+                    .build(),
+                contentDescription = null,
+                modifier = Modifier.size(50.dp),
+                contentScale = ContentScale.Fit
+            )
+            Column {
+                asset.name?.let { Text(text = it.capitalize(), fontWeight = FontWeight.Bold) }
+                asset.quantity?.let { Text(text = "Quantity: $it") }
+                asset.rented?.let {
+                    Text(
+                        text = "Available", color = if (it) Color.Red else Color(0xFF0B9230)
+                    )
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun MyAssets(navController: NavHostController) {
+        val assets = viewModel.assetsMuteableLiveData.observeAsState(initial = List(8) { Asset() })
+        Column(
+            verticalArrangement = Arrangement.Top,
+            horizontalAlignment = CenterHorizontally,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.Top,
+                horizontalAlignment = CenterHorizontally
+            ) {
+                item {
+                    Text(text = "Assets", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                }
+                items(
+                    items = assets.value
+                ) {
+                    AssetItem(it, navController)
+                    Divider(thickness = 1.dp, color = Color.LightGray)
+                }
+            }
         }
     }
 
     @Composable
     fun SaveAsset(navController: NavHostController) {
+        val success = viewModel.successfulUpload.collectAsState()
+        val uploading = viewModel.uploading.collectAsState()
+
+        if (uploading.value.not()) {
+            if (success.value) {
+                navController.navigateUp()
+            }
+        }
+
         Column(
             Modifier
                 .fillMaxSize()
@@ -394,14 +510,17 @@ class MainActivity : ComponentActivity() {
             )
             Button(
                 onClick = {
-                    val inputStream = uri?.let { contentResolver.openInputStream(it) }
-                    if (inputStream != null) {
-                        viewModel.uploadAsset(name.value, address.value, quantity.value, inputStream)
+                    if (uri != null) {
+                        viewModel.uploadAsset(
+                            name.value, address.value, quantity.value, uri!!
+                        )
                     }
-
-                }, modifier = Modifier.padding(16.dp)
+                }, modifier = Modifier.padding(16.dp), enabled = uploading.value.not()
             ) {
                 Text(text = "Confirm Save")
+            }
+            if (uploading.value) {
+                CircularProgressIndicator()
             }
         }
     }
@@ -418,7 +537,7 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun HomeContent(onScanQR: () -> Unit, onAddAsset: () -> Unit) {
+    fun HomeContent(onScanQR: () -> Unit, onAddAsset: () -> Unit, onMyAssets: () -> Unit) {
         Button(
             onClick = onScanQR, modifier = Modifier
                 .fillMaxWidth()
@@ -436,7 +555,7 @@ class MainActivity : ComponentActivity() {
         }
 
         Button(
-            onClick = { /* TODO */ }, modifier = Modifier
+            onClick = onMyAssets, modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 16.dp)
         ) {
@@ -456,16 +575,14 @@ class MainActivity : ComponentActivity() {
         var isPasswordValid by remember { mutableStateOf(true) }
         var loading by remember { mutableStateOf(false) }
 
-        // Lottie
-        val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.truck))
-        val progress by animateLottieCompositionAsState(composition = composition, iterations = 5)
-
         val snackbarHostState = remember { SnackbarHostState() }
         val scope = rememberCoroutineScope()
 
         SnackbarHost(hostState = snackbarHostState, modifier = Modifier)
 
-        Box(contentAlignment = Alignment.Center) {
+        Box(
+            contentAlignment = Alignment.Center, modifier = Modifier.background(color = Color.White)
+        ) {
             when (loading) {
                 true -> CircularProgressIndicator(
                     Modifier
@@ -484,14 +601,14 @@ class MainActivity : ComponentActivity() {
                 horizontalAlignment = CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
                 modifier = Modifier
-                    .width(IntrinsicSize.Max)
+                    .fillMaxSize()
                     .padding(16.dp)
             ) {
-                LottieAnimation(
-                    composition = composition,
-                    progress = { progress },
-                    alignment = Alignment.Center,
-                    modifier = Modifier.size(200.dp)
+                Image(
+                    painter = painterResource(id = R.drawable.logo),
+                    contentDescription = "",
+                    modifier = Modifier.fillMaxWidth(),
+                    contentScale = ContentScale.Fit
                 )
                 EmailTextField(email = email, onTextChanged = { email = it })
                 PasswordTextField(
@@ -504,7 +621,6 @@ class MainActivity : ComponentActivity() {
                     onPasswordVisibilityChanged = { isPasswordVisible = isPasswordVisible.not() },
                     isPasswordValid = isPasswordValid,
                 )
-
                 Button(
                     onClick = {
                         loading = true
