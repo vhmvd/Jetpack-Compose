@@ -41,7 +41,6 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -68,6 +67,7 @@ import com.example.intrack.ui.theme.InTrackTheme
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
 import kotlinx.coroutines.launch
+import java.util.*
 
 
 class MainActivity : ComponentActivity() {
@@ -197,23 +197,42 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun AssetInfoScreen(data: String) {
-        val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.scan))
-        val progress by animateLottieCompositionAsState(composition = composition)
-
+        val asset = viewModel.docMuteableLiveData.observeAsState(Asset())
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.Top,
+            verticalArrangement = Arrangement.Center,
             horizontalAlignment = CenterHorizontally
         ) {
-            LottieAnimation(
-                composition = composition,
-                progress = { progress },
-                alignment = Alignment.Center,
-                modifier = Modifier.size(400.dp)
+            SubcomposeAsyncImage(
+                loading = {
+                    CircularProgressIndicator(modifier = Modifier.size(50.dp))
+                },
+                model = ImageRequest.Builder(LocalContext.current).data(asset.value.image)
+                    .crossfade(true).build(),
+                contentDescription = null,
+                modifier = Modifier.size(200.dp),
+                contentScale = ContentScale.Fit
             )
-            Text(text = data, fontStyle = FontStyle.Normal, fontWeight = FontWeight.W700)
+            Column {
+                asset.value.name.let { s ->
+                    Text(text = s.replaceFirstChar {
+                        if (it.isLowerCase()) it.titlecase(
+                            Locale.ROOT
+                        ) else it.toString()
+                    }, fontWeight = FontWeight.Bold)
+                }
+                asset.value.quantity?.let { Text(text = "Quantity: $it") }
+                asset.value.rented?.let {
+                    Text(
+                        text = "Available", color = if (it) Color.Red else Color(0xFF0B9230)
+                    )
+                }
+                Button(onClick = { /*TODO*/ }) {
+                    Text(text = "Request Asset")
+                }
+            }
         }
     }
 
@@ -231,11 +250,11 @@ class MainActivity : ComponentActivity() {
                 ) == PackageManager.PERMISSION_GRANTED
             )
         }
-        val launcher = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.RequestPermission(),
-            onResult = { granted ->
-                hasCamPermission = granted
-            })
+        val launcher =
+            rememberLauncherForActivityResult(contract = ActivityResultContracts.RequestPermission(),
+                onResult = { granted ->
+                    hasCamPermission = granted
+                })
         LaunchedEffect(key1 = true) {
             launcher.launch(android.Manifest.permission.CAMERA)
         }
@@ -292,14 +311,17 @@ class MainActivity : ComponentActivity() {
 
             composable(route = "qr") {
                 QRCodeScanner {
+                    val new = it.replace("/", ";")
                     navController.navigateUp()
-                    navController.navigate(route = "info/$it")
+                    navController.navigate(route = "info/$new")
                 }
             }
 
             composable(route = "info/{data}") {
                 val data = it.arguments?.getString("data") ?: "Error reading the QR."
-                AssetInfoScreen(data)
+                val tData = data.replace(";", "/")
+                viewModel.getDocument(tData)
+                AssetInfoScreen(tData)
             }
 
             composable(route = "home") {
@@ -466,7 +488,7 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun SaveAsset(navController: NavHostController) {
         val success = viewModel.successfulUpload.collectAsState()
-        val uploading = viewModel.uploading.collectAsState()
+        val uploading = viewModel.loading.collectAsState()
 
         if (uploading.value.not()) {
             if (success.value) {

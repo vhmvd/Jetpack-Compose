@@ -29,8 +29,8 @@ class AppViewModel : ViewModel() {
     }
     private val db = Firebase.firestore
 
-    private val _uploading = MutableStateFlow(false)
-    val uploading: StateFlow<Boolean> = _uploading
+    private val _loading = MutableStateFlow(false)
+    val loading: StateFlow<Boolean> = _loading
 
     private val _successfulUpload = MutableStateFlow(false)
     val successfulUpload: StateFlow<Boolean> = _successfulUpload
@@ -38,9 +38,12 @@ class AppViewModel : ViewModel() {
     private val _assetsMuteableLiveData = MutableLiveData<List<Asset>>()
     val assetsMuteableLiveData: LiveData<List<Asset>> = _assetsMuteableLiveData
 
+    private val _docMuteableLiveData = MutableLiveData<Asset>()
+    val docMuteableLiveData: LiveData<Asset> = _docMuteableLiveData
+
     fun getQrCodeBitmap(content: String): ImageBitmap {
         val size = 320 //pixels
-        val bits = QRCodeWriter().encode("$currentUser/$content", BarcodeFormat.QR_CODE, size, size)
+        val bits = QRCodeWriter().encode("$content", BarcodeFormat.QR_CODE, size, size)
         return Bitmap.createBitmap(size, size, Bitmap.Config.RGB_565).also {
             for (x in 0 until size) {
                 for (y in 0 until size) {
@@ -57,7 +60,7 @@ class AppViewModel : ViewModel() {
             return
         }
         viewModelScope.launch(Dispatchers.IO) {
-            _uploading.value = true
+            _loading.value = true
             _successfulUpload.value = false
 
             val fileName = UUID.randomUUID().toString() + ".jpg"
@@ -85,10 +88,10 @@ class AppViewModel : ViewModel() {
                             _successfulUpload.value = it.isSuccessful
                         }
                     }
-                    _uploading.value = false
+                    _loading.value = false
                 }
             }.addOnFailureListener {
-                _uploading.value = false
+                _loading.value = false
             }
         }
     }
@@ -103,4 +106,20 @@ class AppViewModel : ViewModel() {
                 }
         }
     }
+
+    fun getDocument(dat: String) {
+        val data = dat.split("/").also {
+            if (it.size < 2) return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            db.collection("Users").document(data[0]).collection("Assets").document(data[1]).get()
+                .addOnSuccessListener { result ->
+                    val doc = result?.let {
+                        it.toObject(Asset::class.java)
+                    } ?: Asset()
+                    _docMuteableLiveData.postValue(doc)
+                }
+        }
+    }
+
 }
