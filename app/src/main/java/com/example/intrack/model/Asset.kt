@@ -8,5 +8,5 @@ data class Asset(
     @PropertyName("name") val name: String = "Loading..",
     @PropertyName("qr") val qr: String? = null,
     @PropertyName("quantity") val quantity: String? = null,
-    @PropertyName("rented") var rented: Boolean? = null
+    @PropertyName("rented") var rented: Int = 0
 )

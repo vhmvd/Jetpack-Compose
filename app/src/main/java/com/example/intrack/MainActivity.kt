@@ -224,10 +224,11 @@ class MainActivity : ComponentActivity() {
                     }, fontWeight = FontWeight.Bold)
                 }
                 asset.value.quantity?.let { Text(text = "Quantity: $it") }
-                asset.value.rented?.let {
-                    Text(
-                        text = "Available", color = if (it) Color.Red else Color(0xFF0B9230)
-                    )
+                when (asset.value.rented) {
+                    0 -> Text(text = "Not Available", color = Color(0xFFE20F28))
+                    1 -> Text(text = "Available", color = Color(0xFF0B9230))
+                    2 -> Text(text = "Rented", color = Color(0xFF146EBD))
+                    else -> Text(text = "Renting", color = Color(0xFFCAE20D))
                 }
                 Button(onClick = { /*TODO*/ }) {
                     Text(text = "Request Asset")
@@ -444,12 +445,13 @@ class MainActivity : ComponentActivity() {
                 contentScale = ContentScale.Fit
             )
             Column {
-                asset.name?.let { Text(text = it.capitalize(), fontWeight = FontWeight.Bold) }
+                Text(text = asset.name.capitalize(), fontWeight = FontWeight.Bold)
                 asset.quantity?.let { Text(text = "Quantity: $it") }
-                asset.rented?.let {
-                    Text(
-                        text = "Available", color = if (it) Color.Red else Color(0xFF0B9230)
-                    )
+                when (asset.rented) {
+                    0 -> Text(text = "Not Available", color = Color(0xFFE20F28))
+                    1 -> Text(text = "Available", color = Color(0xFF0B9230))
+                    2 -> Text(text = "Rented", color = Color(0xFF146EBD))
+                    else -> Text(text = "Renting", color = Color(0xFFCAE20D))
                 }
             }
         }
