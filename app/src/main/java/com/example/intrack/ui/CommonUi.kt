@@ -9,10 +9,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 
 enum class InTrackScreen(val title: String) {
-    Home(title = "Home"), Add(title = "Add Assets"), Location(title = "Location"), Settings(title = "Settings"), QR(
-        title = "QR"
-    ),
-    Notifications(title = "Notifications"), Login(title = "Login")
+    Home(title = "Home"),
+    Requests(title = "Requests")
 }
 
 /**

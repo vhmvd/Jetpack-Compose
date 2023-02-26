@@ -82,7 +82,7 @@ class AppViewModel : ViewModel() {
                             "quantity" to quantity,
                             "image" to image,
                             "qr" to "$currentUser/$assetName",
-                            "rented" to false
+                            "rented" to 0
                         )
                         document.set(asset).addOnCompleteListener {
                             _successfulUpload.value = it.isSuccessful

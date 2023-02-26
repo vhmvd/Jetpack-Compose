@@ -228,7 +228,7 @@ class MainActivity : ComponentActivity() {
                     0 -> Text(text = "Not Available", color = Color(0xFFE20F28))
                     1 -> Text(text = "Available", color = Color(0xFF0B9230))
                     2 -> Text(text = "Rented", color = Color(0xFF146EBD))
-                    else -> Text(text = "Renting", color = Color(0xFFCAE20D))
+                    else -> Text(text = "Leased", color = Color(0xFFCAE20D))
                 }
                 Button(onClick = { /*TODO*/ }) {
                     Text(text = "Request Asset")
@@ -293,6 +293,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    @Composable
+    fun Requests() {
+        Text(text = "Requests")
+    }
+
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun NavGraph(navController: NavHostController) {
@@ -327,25 +332,25 @@ class MainActivity : ComponentActivity() {
 
             composable(route = "home") {
                 val snackbarHostState = remember { SnackbarHostState() }
+                var selectedItem by remember { mutableStateOf(0) }
+                val items = listOf("Home", "Requests")
                 Surface(
                     modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background
                 ) {
                     Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }, topBar = {
-                        InTrackAppBar(currentScreen = InTrackScreen.Home,
-                            canNavigateBack = false,
-                            navigateUp = { },
-                            logout = {
-                                FirebaseAuth.getInstance().signOut()
-                                navController.navigate("login") {
-                                    popUpTo("home") {
-                                        inclusive = true
-                                    }
+                        InTrackAppBar(currentScreen = if (selectedItem == 0) {
+                            InTrackScreen.Home
+                        } else {
+                            InTrackScreen.Requests
+                        }, canNavigateBack = false, navigateUp = { }, logout = {
+                            FirebaseAuth.getInstance().signOut()
+                            navController.navigate("login") {
+                                popUpTo("home") {
+                                    inclusive = true
                                 }
-                            })
+                            }
+                        })
                     }, bottomBar = {
-                        var selectedItem by remember { mutableStateOf(0) }
-                        val items = listOf("Home", "Notifications")
-
                         NavigationBar {
                             items.forEachIndexed { index, item ->
                                 NavigationBarItem(icon = {
@@ -369,14 +374,18 @@ class MainActivity : ComponentActivity() {
                                 .padding(paddingValues)
                                 .padding(horizontal = 16.dp)
                         ) {
-                            HomeContent(onScanQR = {
-                                navController.navigate("qr")
-                            }, onAddAsset = {
-                                navController.navigate("add")
-                            }, onMyAssets = {
-                                viewModel.getMyAssets()
-                                navController.navigate("store")
-                            })
+                            if (selectedItem == 0) {
+                                HomeContent(onScanQR = {
+                                    navController.navigate("qr")
+                                }, onAddAsset = {
+                                    navController.navigate("add")
+                                }, onMyAssets = {
+                                    viewModel.getMyAssets()
+                                    navController.navigate("store")
+                                })
+                            } else if (selectedItem == 1) {
+                                Requests()
+                            }
                         }
                     })
                 }
@@ -411,7 +420,9 @@ class MainActivity : ComponentActivity() {
         var isPasswordVisible by remember { mutableStateOf(false) }
         var isPasswordValid by remember { mutableStateOf(true) }
         Column(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
             horizontalAlignment = CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -427,10 +438,10 @@ class MainActivity : ComponentActivity() {
                 isPasswordValid = isPasswordValid,
             )
             Button(
-                enabled = password.length >= 6 ,
-                onClick = {
-                    FirebaseAuth.getInstance().createUserWithEmailAndPassword(email.trim(), password)
-                        .addOnCompleteListener{ task ->
+                enabled = password.length >= 6, onClick = {
+                    FirebaseAuth.getInstance()
+                        .createUserWithEmailAndPassword(email.trim(), password)
+                        .addOnCompleteListener { task ->
                             if (task.isSuccessful) {
                                 navController.navigate("home") {
                                     popUpTo("login") {
@@ -439,8 +450,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
-                          },
-                modifier = Modifier
+                }, modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 8.dp, vertical = 16.dp)
             ) {
@@ -467,9 +477,10 @@ class MainActivity : ComponentActivity() {
                         .border(2.dp, Color.Black, RoundedCornerShape(8.dp))
                 )
             }
-            asset.address.let {
-                Text(text = it.capitalize(), fontWeight = FontWeight.Bold)
-            }
+            Text(
+                text = asset.address.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() },
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 
@@ -494,13 +505,16 @@ class MainActivity : ComponentActivity() {
                 contentScale = ContentScale.Fit
             )
             Column {
-                Text(text = asset.name.capitalize(), fontWeight = FontWeight.Bold)
+                Text(
+                    text = asset.name.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() },
+                    fontWeight = FontWeight.Bold
+                )
                 asset.quantity?.let { Text(text = "Quantity: $it") }
                 when (asset.rented) {
                     0 -> Text(text = "Not Available", color = Color(0xFFE20F28))
                     1 -> Text(text = "Available", color = Color(0xFF0B9230))
                     2 -> Text(text = "Rented", color = Color(0xFF146EBD))
-                    else -> Text(text = "Renting", color = Color(0xFFCAE20D))
+                    else -> Text(text = "Leased", color = Color(0xFFCAE20D))
                 }
             }
         }
@@ -726,7 +740,7 @@ class MainActivity : ComponentActivity() {
                 Divider(thickness = 1.dp, modifier = Modifier.padding(8.dp))
                 Button(
                     onClick = {
-                              navController.navigate("register")
+                        navController.navigate("register")
                     },
                     modifier = Modifier
                         .fillMaxWidth()
