@@ -397,6 +397,55 @@ class MainActivity : ComponentActivity() {
             composable(route = "detail") {
                 AssetDetail()
             }
+
+            composable(route = "register") {
+                Register(navController = navController)
+            }
+        }
+    }
+
+    @Composable
+    fun Register(navController: NavHostController) {
+        var email by remember { mutableStateOf("") }
+        var password by remember { mutableStateOf("") }
+        var isPasswordVisible by remember { mutableStateOf(false) }
+        var isPasswordValid by remember { mutableStateOf(true) }
+        Column(
+            modifier = Modifier.fillMaxSize().padding(16.dp),
+            horizontalAlignment = CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            EmailTextField(email = email, onTextChanged = { email = it })
+            PasswordTextField(
+                password = password,
+                onTextChanged = {
+                    password = it
+                    isPasswordValid = password.length >= 6
+                },
+                isPasswordVisible = isPasswordVisible,
+                onPasswordVisibilityChanged = { isPasswordVisible = isPasswordVisible.not() },
+                isPasswordValid = isPasswordValid,
+            )
+            Button(
+                enabled = password.length >= 6 ,
+                onClick = {
+                    FirebaseAuth.getInstance().createUserWithEmailAndPassword(email.trim(), password)
+                        .addOnCompleteListener{ task ->
+                            if (task.isSuccessful) {
+                                navController.navigate("home") {
+                                    popUpTo("login") {
+                                        inclusive = true
+                                    }
+                                }
+                            }
+                        }
+                          },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 16.dp)
+            ) {
+                Text(text = "Register")
+            }
         }
     }
 
@@ -418,7 +467,7 @@ class MainActivity : ComponentActivity() {
                         .border(2.dp, Color.Black, RoundedCornerShape(8.dp))
                 )
             }
-            asset.address?.let {
+            asset.address.let {
                 Text(text = it.capitalize(), fontWeight = FontWeight.Bold)
             }
         }
@@ -677,7 +726,7 @@ class MainActivity : ComponentActivity() {
                 Divider(thickness = 1.dp, modifier = Modifier.padding(8.dp))
                 Button(
                     onClick = {
-
+                              navController.navigate("register")
                     },
                     modifier = Modifier
                         .fillMaxWidth()
