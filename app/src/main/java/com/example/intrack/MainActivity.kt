@@ -513,8 +513,8 @@ class MainActivity : ComponentActivity() {
                 when (asset.rented) {
                     0 -> Text(text = "Not Available", color = Color(0xFFE20F28))
                     1 -> Text(text = "Available", color = Color(0xFF0B9230))
-                    2 -> Text(text = "Rented", color = Color(0xFF146EBD))
-                    else -> Text(text = "Leased", color = Color(0xFFCAE20D))
+                    2 -> Text(text = "My Asset", color = Color(0xFF146EBD))
+                    else -> Text(text = "Rented", color = Color(0xFFCAE20D))
                 }
             }
         }
