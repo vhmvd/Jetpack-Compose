@@ -227,8 +227,8 @@ class MainActivity : ComponentActivity() {
                 when (asset.value.rented) {
                     0 -> Text(text = "Not Available", color = Color(0xFFE20F28))
                     1 -> Text(text = "Available", color = Color(0xFF0B9230))
-                    2 -> Text(text = "Rented", color = Color(0xFF146EBD))
-                    else -> Text(text = "Leased", color = Color(0xFFCAE20D))
+                    2 -> Text(text = "My Asset", color = Color(0xFF146EBD))
+                    else -> Text(text = "Rented", color = Color(0xFFCAE20D))
                 }
                 Button(onClick = { /*TODO*/ }) {
                     Text(text = "Request Asset")
@@ -251,11 +251,11 @@ class MainActivity : ComponentActivity() {
                 ) == PackageManager.PERMISSION_GRANTED
             )
         }
-        val launcher =
-            rememberLauncherForActivityResult(contract = ActivityResultContracts.RequestPermission(),
-                onResult = { granted ->
-                    hasCamPermission = granted
-                })
+        val launcher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission(),
+            onResult = { granted ->
+                hasCamPermission = granted
+            })
         LaunchedEffect(key1 = true) {
             launcher.launch(android.Manifest.permission.CAMERA)
         }
@@ -294,8 +294,22 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
+    fun RequestColumn() {
+
+    }
+
+    @Composable
     fun Requests() {
         Text(text = "Requests")
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Top,
+            horizontalAlignment = CenterHorizontally
+        ) {
+
+        }
     }
 
     @OptIn(ExperimentalMaterial3Api::class)
@@ -522,7 +536,7 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun MyAssets(navController: NavHostController) {
-        val assets = viewModel.assetsMuteableLiveData.observeAsState(initial = List(8) { Asset() })
+        val assets = viewModel.assetsMuteableLiveData.observeAsState(initial = List(18) { Asset() })
         Column(
             verticalArrangement = Arrangement.Top,
             horizontalAlignment = CenterHorizontally,
