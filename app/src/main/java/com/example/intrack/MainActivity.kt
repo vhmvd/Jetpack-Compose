@@ -196,7 +196,7 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun AssetInfoScreen(data: String) {
+    fun AssetInfoScreen(data: String, navController: NavHostController) {
         val asset = viewModel.docMuteableLiveData.observeAsState(Asset())
         Column(
             modifier = Modifier
@@ -230,7 +230,10 @@ class MainActivity : ComponentActivity() {
                     2 -> Text(text = "My Asset", color = Color(0xFF146EBD))
                     else -> Text(text = "Rented", color = Color(0xFFCAE20D))
                 }
-                Button(onClick = { /*TODO*/ }) {
+                Button(onClick = {
+                    viewModel.requestAsset(data)
+                    navController.navigateUp()
+                }) {
                     Text(text = "Request Asset")
                 }
             }
@@ -251,11 +254,11 @@ class MainActivity : ComponentActivity() {
                 ) == PackageManager.PERMISSION_GRANTED
             )
         }
-        val launcher = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.RequestPermission(),
-            onResult = { granted ->
-                hasCamPermission = granted
-            })
+        val launcher =
+            rememberLauncherForActivityResult(contract = ActivityResultContracts.RequestPermission(),
+                onResult = { granted ->
+                    hasCamPermission = granted
+                })
         LaunchedEffect(key1 = true) {
             launcher.launch(android.Manifest.permission.CAMERA)
         }
@@ -293,14 +296,43 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    @androidx.compose.ui.tooling.preview.Preview
     @Composable
-    fun RequestColumn() {
-
+    fun x() {
+        RequestItem(Asset())
     }
 
     @Composable
-    fun Requests() {
-        Text(text = "Requests")
+    fun RequestItem(asset: Asset) {
+        Row (horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text(text = asset.name, modifier = Modifier.padding(end = 4.dp))
+            RequestButtons()
+        }
+    }
+
+    @Composable
+    fun RequestButtons() {
+        Row {
+            Button(
+                onClick = { /*TODO*/ },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF388E3C)),
+                modifier = Modifier.padding(2.dp)
+            ) {
+                Text(text = "Accept")
+            }
+            Button(
+                onClick = { /*TODO*/ },
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                modifier = Modifier.padding(2.dp)
+            ) {
+                Text(text = "Decline")
+            }
+        }
+    }
+
+    @Composable
+    fun Requests(navController: NavHostController) {
+        val requests = viewModel.requestsListLiveData.observeAsState(initial = List(18) { Asset() })
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -308,7 +340,12 @@ class MainActivity : ComponentActivity() {
             verticalArrangement = Arrangement.Top,
             horizontalAlignment = CenterHorizontally
         ) {
-
+            item {
+                Text(text = "Requests")
+            }
+            items(requests.value) {
+                RequestItem(it)
+            }
         }
     }
 
@@ -341,7 +378,7 @@ class MainActivity : ComponentActivity() {
                 val data = it.arguments?.getString("data") ?: "Error reading the QR."
                 val tData = data.replace(";", "/")
                 viewModel.getDocument(tData)
-                AssetInfoScreen(tData)
+                AssetInfoScreen(tData, navController)
             }
 
             composable(route = "home") {
@@ -398,7 +435,7 @@ class MainActivity : ComponentActivity() {
                                     navController.navigate("store")
                                 })
                             } else if (selectedItem == 1) {
-                                Requests()
+                                Requests(navController)
                             }
                         }
                     })

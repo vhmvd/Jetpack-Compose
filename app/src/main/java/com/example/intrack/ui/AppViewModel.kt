@@ -38,6 +38,12 @@ class AppViewModel : ViewModel() {
     private val _assetsMuteableLiveData = MutableLiveData<List<Asset>>()
     val assetsMuteableLiveData: LiveData<List<Asset>> = _assetsMuteableLiveData
 
+    private val _requestsLiveData = MutableLiveData<Boolean>()
+    val requestsLiveData: LiveData<Boolean> = _requestsLiveData
+
+    private val _requestsListLiveData = MutableLiveData<List<Asset>>()
+    val requestsListLiveData: LiveData<List<Asset>> = _requestsListLiveData
+
     private val _docMuteableLiveData = MutableLiveData<Asset>()
     val docMuteableLiveData: LiveData<Asset> = _docMuteableLiveData
 
@@ -103,6 +109,35 @@ class AppViewModel : ViewModel() {
                     _assetsMuteableLiveData.postValue(result.mapNotNull {
                         it?.toObject(Asset::class.java)
                     })
+                }
+        }
+    }
+
+    fun getMyRequests() {
+        viewModelScope.launch(Dispatchers.IO) {
+            db.collection("Users").document(currentUser).collection("Requests").get()
+                .addOnSuccessListener { result ->
+                    _requestsListLiveData.postValue(result.mapNotNull {
+                        it?.toObject(Asset::class.java)
+                    })
+                }
+        }
+    }
+
+    fun requestAsset(dat: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val data = dat.split("/").also {
+                if (it.size < 2) return@launch
+            }
+            db.collection("Users").document(data[0]).collection("Assets").document(data[1]).get()
+                .addOnSuccessListener { result ->
+                    result?.let {
+                        it.toObject(Asset::class.java)
+                    } ?: Asset()
+                    db.collection("Users").document(currentUser).collection("Assets")
+                        .document(data[1]).set(result.data ?: HashMap<String, Any>()).addOnCompleteListener {
+                            _requestsLiveData.postValue(true)
+                        }
                 }
         }
     }
