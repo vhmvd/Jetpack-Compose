@@ -1,8 +1,12 @@
 package com.example.intrack
 
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.ImageDecoder
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.provider.MediaStore
 import android.util.Log
 import android.util.Size
 import androidx.activity.ComponentActivity
@@ -49,6 +53,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.decodeBitmap
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -66,7 +71,9 @@ import com.example.intrack.ui.camera.QRCode
 import com.example.intrack.ui.theme.InTrackTheme
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.io.ByteArrayOutputStream
 import java.util.*
 
 
@@ -82,8 +89,7 @@ class MainActivity : ComponentActivity() {
 
     private var uri: Uri? = null
     private val pickMedia = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) {
-        // Callback is invoked after the user selects a media item or closes the
-        // photo picker.
+        // Callback is invoked after the user selects a media item or closes the photo picker
         it?.let {
             photoSelected.value = true
             uri = it
@@ -254,11 +260,11 @@ class MainActivity : ComponentActivity() {
                 ) == PackageManager.PERMISSION_GRANTED
             )
         }
-        val launcher =
-            rememberLauncherForActivityResult(contract = ActivityResultContracts.RequestPermission(),
-                onResult = { granted ->
-                    hasCamPermission = granted
-                })
+        val launcher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission(),
+            onResult = { granted ->
+                hasCamPermission = granted
+            })
         LaunchedEffect(key1 = true) {
             launcher.launch(android.Manifest.permission.CAMERA)
         }
@@ -304,7 +310,10 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun RequestItem(asset: Asset) {
-        Row (horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(text = asset.name, modifier = Modifier.padding(end = 4.dp))
             RequestButtons()
         }
@@ -605,6 +614,7 @@ class MainActivity : ComponentActivity() {
     fun SaveAsset(navController: NavHostController) {
         val success = viewModel.successfulUpload.collectAsState()
         val uploading = viewModel.loading.collectAsState()
+        val coroutineScope = rememberCoroutineScope()
 
         if (uploading.value.not()) {
             if (success.value) {
@@ -649,9 +659,20 @@ class MainActivity : ComponentActivity() {
             Button(
                 onClick = {
                     if (uri != null) {
-                        viewModel.uploadAsset(
-                            name.value, address.value, quantity.value, uri!!
-                        )
+                        coroutineScope.launch(Dispatchers.Default) {
+                            val bmp = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                                ImageDecoder.createSource(contentResolver, uri!!)
+                                    .decodeBitmap { _, _ ->
+                                    }
+                            } else {
+                                MediaStore.Images.Media.getBitmap(contentResolver, uri)
+                            }
+                            val baos = ByteArrayOutputStream()
+                            bmp.compress(Bitmap.CompressFormat.JPEG, 25, baos)
+                            viewModel.uploadAsset(
+                                name.value, address.value, quantity.value, baos.toByteArray()
+                            )
+                        }
                     }
                 }, modifier = Modifier.padding(16.dp), enabled = uploading.value.not()
             ) {

@@ -1,7 +1,6 @@
 package com.example.intrack.ui
 
 import android.graphics.Bitmap
-import android.net.Uri
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.LiveData
@@ -60,7 +59,7 @@ class AppViewModel : ViewModel() {
     }
 
     fun uploadAsset(
-        assetName: String, address: String, quantity: String, uri: Uri
+        assetName: String, address: String, quantity: String, imageBytes: ByteArray
     ) {
         if (currentUser == "") {
             return
@@ -72,7 +71,7 @@ class AppViewModel : ViewModel() {
             val fileName = UUID.randomUUID().toString() + ".jpg"
             val storageRef = FirebaseStorage.getInstance().reference
             val imagesRef = storageRef.child("images/$fileName")
-            val uploadTask = imagesRef.putFile(uri, storageMetadata {
+            val uploadTask = imagesRef.putBytes(imageBytes, storageMetadata {
                 contentType = "image/jpg"
             })
             val document = db.collection("Users").document(currentUser).collection("Assets")
@@ -88,7 +87,7 @@ class AppViewModel : ViewModel() {
                             "quantity" to quantity,
                             "image" to image,
                             "qr" to "$currentUser/$assetName",
-                            "rented" to 0
+                            "rented" to 2
                         )
                         document.set(asset).addOnCompleteListener {
                             _successfulUpload.value = it.isSuccessful
@@ -135,7 +134,8 @@ class AppViewModel : ViewModel() {
                         it.toObject(Asset::class.java)
                     } ?: Asset()
                     db.collection("Users").document(currentUser).collection("Assets")
-                        .document(data[1]).set(result.data ?: HashMap<String, Any>()).addOnCompleteListener {
+                        .document(data[1]).set(result.data ?: HashMap<String, Any>())
+                        .addOnCompleteListener {
                             _requestsLiveData.postValue(true)
                         }
                 }
