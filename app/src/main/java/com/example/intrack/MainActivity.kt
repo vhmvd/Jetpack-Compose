@@ -54,7 +54,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.decodeBitmap
-import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -71,7 +70,6 @@ import com.example.intrack.ui.camera.QRCode
 import com.example.intrack.ui.theme.InTrackTheme
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 import java.util.*
@@ -79,7 +77,7 @@ import java.util.*
 
 class MainActivity : ComponentActivity() {
 
-    private val viewModel by lazy { ViewModelProvider(this)[AppViewModel::class.java] }
+    private var viewModel = AppViewModel()
     private var photoSelected = mutableStateOf(false)
     private var name = mutableStateOf("")
     private var address = mutableStateOf("")
@@ -234,6 +232,7 @@ class MainActivity : ComponentActivity() {
                     0 -> Text(text = "Not Available", color = Color(0xFFE20F28))
                     1 -> Text(text = "Available", color = Color(0xFF0B9230))
                     2 -> Text(text = "My Asset", color = Color(0xFF146EBD))
+                    3 -> Text(text = "Requested", color = Color(0xFFF57C00))
                     else -> Text(text = "Rented", color = Color(0xFFCAE20D))
                 }
                 Button(onClick = {
@@ -302,12 +301,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    @androidx.compose.ui.tooling.preview.Preview
-    @Composable
-    fun x() {
-        RequestItem(Asset())
-    }
-
     @Composable
     fun RequestItem(asset: Asset) {
         Row(
@@ -341,6 +334,9 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun Requests(navController: NavHostController) {
+        LaunchedEffect(key1 = "Request") {
+            viewModel.getMyRequests()
+        }
         val requests = viewModel.requestsListLiveData.observeAsState(initial = List(18) { Asset() })
         LazyColumn(
             modifier = Modifier
@@ -409,6 +405,7 @@ class MainActivity : ComponentActivity() {
                                     inclusive = true
                                 }
                             }
+
                         })
                     }, bottomBar = {
                         NavigationBar {
@@ -574,6 +571,7 @@ class MainActivity : ComponentActivity() {
                     0 -> Text(text = "Not Available", color = Color(0xFFE20F28))
                     1 -> Text(text = "Available", color = Color(0xFF0B9230))
                     2 -> Text(text = "My Asset", color = Color(0xFF146EBD))
+                    3 -> Text(text = "Requested", color = Color(0xFFF57C00))
                     else -> Text(text = "Rented", color = Color(0xFFCAE20D))
                 }
             }
@@ -659,7 +657,7 @@ class MainActivity : ComponentActivity() {
             Button(
                 onClick = {
                     if (uri != null) {
-                        coroutineScope.launch(Dispatchers.Default) {
+                        coroutineScope.launch {
                             val bmp = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                                 ImageDecoder.createSource(contentResolver, uri!!)
                                     .decodeBitmap { _, _ ->
@@ -788,6 +786,7 @@ class MainActivity : ComponentActivity() {
                             .addOnCompleteListener {
                                 loading = false
                                 if (it.isSuccessful) {
+                                    viewModel = AppViewModel()
                                     navController.navigate("home") {
                                         popUpTo("login") {
                                             inclusive = true

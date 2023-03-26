@@ -134,9 +134,12 @@ class AppViewModel : ViewModel() {
                         it.toObject(Asset::class.java)
                     } ?: Asset()
                     db.collection("Users").document(currentUser).collection("Assets")
-                        .document(data[1]).set(result.data ?: HashMap<String, Any>())
-                        .addOnCompleteListener {
+                        .document(data[1]).set(result.data?.apply {
+                            this["rented"] = 3
+                        } ?: HashMap<String, Any>()).addOnSuccessListener {
                             _requestsLiveData.postValue(true)
+                            db.collection("Users").document(data[0]).collection("Requests")
+                                .document(data[1]).set(result.data ?: HashMap<String, Any>())
                         }
                 }
         }
