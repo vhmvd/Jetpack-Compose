@@ -139,7 +139,9 @@ class AppViewModel : ViewModel() {
                         } ?: HashMap<String, Any>()).addOnSuccessListener {
                             _requestsLiveData.postValue(true)
                             db.collection("Users").document(data[0]).collection("Requests")
-                                .document(data[1]).set(result.data ?: HashMap<String, Any>())
+                                .document(data[1]).set(result.data?.apply {
+                                    this["request"] = currentUser
+                                } ?: HashMap<String, Any>())
                         }
                 }
         }
@@ -157,6 +159,25 @@ class AppViewModel : ViewModel() {
                     } ?: Asset()
                     _docMuteableLiveData.postValue(doc)
                 }
+        }
+    }
+
+    fun acceptAssetRequest(asset: Asset) {
+        val name = asset.name
+        val requester = asset.request
+        viewModelScope.launch(Dispatchers.IO) {
+            db.collection("Users").document(requester).collection("Assets").document(name)
+                .update("rented", 4)
+        }
+    }
+
+    fun declineAssetRequest(asset: Asset) {
+        val name = asset.name
+        val requester = asset.request
+        viewModelScope.launch(Dispatchers.IO) {
+            db.collection("Users").document(requester).collection("Assets").document(name).delete()
+            db.collection("Users").document(currentUser).collection("Requests").document(name)
+                .delete()
         }
     }
 

@@ -69,7 +69,6 @@ import com.example.intrack.ui.InTrackScreen
 import com.example.intrack.ui.camera.QRCode
 import com.example.intrack.ui.theme.InTrackTheme
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseAuthException
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 import java.util.*
@@ -305,25 +304,30 @@ class MainActivity : ComponentActivity() {
     fun RequestItem(asset: Asset) {
         Row(
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
         ) {
             Text(text = asset.name, modifier = Modifier.padding(end = 4.dp))
-            RequestButtons()
+            RequestButtons(asset)
         }
     }
 
     @Composable
-    fun RequestButtons() {
+    fun RequestButtons(asset: Asset) {
         Row {
             Button(
-                onClick = { /*TODO*/ },
+                onClick = {
+                    viewModel.acceptAssetRequest(asset)
+                },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF388E3C)),
                 modifier = Modifier.padding(2.dp)
             ) {
                 Text(text = "Accept")
             }
             Button(
-                onClick = { /*TODO*/ },
+                onClick = {
+                    viewModel.declineAssetRequest(asset)
+                },
                 colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
                 modifier = Modifier.padding(2.dp)
             ) {
@@ -346,7 +350,11 @@ class MainActivity : ComponentActivity() {
             horizontalAlignment = CenterHorizontally
         ) {
             item {
-                Text(text = "Requests")
+                if (requests.value.isEmpty()) {
+                    Text(text = "No Requests")
+                } else {
+                    Text(text = "Requests")
+                }
             }
             items(requests.value) {
                 RequestItem(it)
@@ -795,8 +803,7 @@ class MainActivity : ComponentActivity() {
                                 } else {
                                     scope.launch {
                                         snackbarHostState.showSnackbar(
-                                            message = (it.exception as FirebaseAuthException).localizedMessage
-                                                ?: "Try again later"
+                                            message = it.exception?.message ?: "Try again later"
                                         )
                                     }
                                 }
