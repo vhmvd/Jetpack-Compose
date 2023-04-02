@@ -204,8 +204,9 @@ class MainActivity : ComponentActivity() {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .background(Color.LightGray)
                 .padding(16.dp),
-            verticalArrangement = Arrangement.Center,
+            verticalArrangement = Arrangement.SpaceEvenly,
             horizontalAlignment = CenterHorizontally
         ) {
             SubcomposeAsyncImage(
@@ -215,10 +216,10 @@ class MainActivity : ComponentActivity() {
                 model = ImageRequest.Builder(LocalContext.current).data(asset.value.image)
                     .crossfade(true).build(),
                 contentDescription = null,
-                modifier = Modifier.size(200.dp),
+                modifier = Modifier.size(200.dp).background(Color.White),
                 contentScale = ContentScale.Fit
             )
-            Column {
+            Column(horizontalAlignment = CenterHorizontally) {
                 asset.value.name.let { s ->
                     Text(text = s.replaceFirstChar {
                         if (it.isLowerCase()) it.titlecase(
@@ -226,20 +227,20 @@ class MainActivity : ComponentActivity() {
                         ) else it.toString()
                     }, fontWeight = FontWeight.Bold)
                 }
-                asset.value.quantity?.let { Text(text = "Quantity: $it") }
-                when (asset.value.rented) {
-                    0 -> Text(text = "Not Available", color = Color(0xFFE20F28))
-                    1 -> Text(text = "Available", color = Color(0xFF0B9230))
-                    2 -> Text(text = "My Asset", color = Color(0xFF146EBD))
-                    3 -> Text(text = "Requested", color = Color(0xFFF57C00))
-                    else -> Text(text = "Rented", color = Color(0xFFCAE20D))
+                asset.value.quantity?.let {
+                    Text(text = "Quantity: $it")
+                    if (it.toInt() > 0) {
+                        Text(text = "Available", color = Color(0xFF0B9230))
+                    } else {
+                        Text(text = "Not Available", color = Color(0xFFE20F28))
+                    }
                 }
-                Button(onClick = {
-                    viewModel.requestAsset(data)
-                    navController.navigateUp()
-                }) {
-                    Text(text = "Request Asset")
-                }
+            }
+            Button(onClick = {
+                viewModel.requestAsset(data)
+                navController.navigateUp()
+            }) {
+                Text(text = "Request Asset")
             }
         }
     }
@@ -301,19 +302,19 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun RequestItem(asset: Asset) {
+    fun RequestItem(asset: Asset, navController: NavHostController) {
         Row(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(text = asset.name, modifier = Modifier.padding(end = 4.dp))
-            RequestButtons(asset)
+            RequestButtons(asset, navController)
         }
     }
 
     @Composable
-    fun RequestButtons(asset: Asset) {
+    fun RequestButtons(asset: Asset, navController: NavHostController) {
         Row {
             Button(
                 onClick = {
@@ -357,7 +358,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
             items(requests.value) {
-                RequestItem(it)
+                RequestItem(it, navController)
             }
         }
     }
@@ -631,7 +632,7 @@ class MainActivity : ComponentActivity() {
         Column(
             Modifier
                 .fillMaxSize()
-                .padding(16.dp), Arrangement.Top, Alignment.CenterHorizontally
+                .padding(16.dp), Arrangement.Top, CenterHorizontally
         ) {
             Row(Modifier.padding(8.dp)) {
                 Text("Name: ", fontWeight = FontWeight.W700)
