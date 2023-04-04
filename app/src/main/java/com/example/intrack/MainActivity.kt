@@ -1,11 +1,13 @@
 package com.example.intrack
 
+import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
 import android.util.Size
@@ -39,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -71,6 +74,9 @@ import com.example.intrack.ui.theme.InTrackTheme
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileOutputStream
+import java.io.OutputStream
 import java.util.*
 
 
@@ -216,7 +222,9 @@ class MainActivity : ComponentActivity() {
                 model = ImageRequest.Builder(LocalContext.current).data(asset.value.image)
                     .crossfade(true).build(),
                 contentDescription = null,
-                modifier = Modifier.size(200.dp).background(Color.White),
+                modifier = Modifier
+                    .size(200.dp)
+                    .background(Color.White),
                 contentScale = ContentScale.Fit
             )
             Column(horizontalAlignment = CenterHorizontally) {
@@ -245,6 +253,13 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun File.writeBitmap(bitmap: Bitmap, format: Bitmap.CompressFormat, quality: Int) {
+        outputStream().use { out ->
+            bitmap.compress(format, quality, out)
+            out.flush()
+        }
+    }
+
     @Composable
     fun QRCodeScanner(onReadQR: (String) -> Unit) {
         val context = LocalContext.current
@@ -259,11 +274,11 @@ class MainActivity : ComponentActivity() {
                 ) == PackageManager.PERMISSION_GRANTED
             )
         }
-        val launcher = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.RequestPermission(),
-            onResult = { granted ->
-                hasCamPermission = granted
-            })
+        val launcher =
+            rememberLauncherForActivityResult(contract = ActivityResultContracts.RequestPermission(),
+                onResult = { granted ->
+                    hasCamPermission = granted
+                })
         LaunchedEffect(key1 = true) {
             launcher.launch(android.Manifest.permission.CAMERA)
         }
@@ -470,7 +485,7 @@ class MainActivity : ComponentActivity() {
             }
 
             composable(route = "detail") {
-                AssetDetail()
+                AssetDetail(navController = navController)
             }
 
             composable(route = "register") {
@@ -526,27 +541,104 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun AssetDetail(asset: Asset = currentAsset) {
+    fun AssetDetail(asset: Asset = currentAsset, navController: NavHostController) {
         Column(
-            verticalArrangement = Arrangement.Top,
+            verticalArrangement = Arrangement.SpaceEvenly,
             horizontalAlignment = CenterHorizontally,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
-            asset.qr?.let {
-                Image(
-                    bitmap = viewModel.getQrCodeBitmap(it),
-                    contentDescription = "QR",
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .border(2.dp, Color.Black, RoundedCornerShape(8.dp))
-                )
-            }
             Text(
-                text = asset.address.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() },
-                fontWeight = FontWeight.Bold
+                text = asset.name, fontWeight = FontWeight.Bold
             )
+            SubcomposeAsyncImage(
+                loading = {
+                    CircularProgressIndicator(modifier = Modifier.size(50.dp))
+                },
+                model = ImageRequest.Builder(LocalContext.current).data(asset.image).crossfade(true)
+                    .build(),
+                contentDescription = null,
+                modifier = Modifier
+                    .size(200.dp)
+                    .background(Color.White),
+                contentScale = ContentScale.Fit
+            )
+            when (asset.rented) {
+                0 -> Text(text = "Not Available", color = Color(0xFFE20F28))
+                1 -> Text(text = "Available", color = Color(0xFF0B9230))
+                2 -> Text(text = "My Asset", color = Color(0xFF146EBD))
+                3 -> Text(text = "Requested", color = Color(0xFFF57C00))
+                else -> Text(text = "Rented", color = Color(0xFFCAE20D))
+            }
+            Column {
+                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp)
+                ) {
+                    Button(enabled = asset.rented != 2,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0B9230)),
+                        modifier = Modifier.padding(horizontal = 2.dp),
+                        onClick = {
+                            asset.qr?.let { viewModel.requestAsset(it) }
+                            navController.navigateUp()
+                        }) {
+                        Text(text = "Request Asset")
+                    }
+                    Button(enabled = asset.rented > 2,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF57C00)),
+                        modifier = Modifier.padding(horizontal = 2.dp),
+                        onClick = {
+                            asset.qr?.let { /* TODO */ }
+                            navController.navigateUp()
+                        }) {
+                        Text(text = "Return Asset")
+                    }
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp)
+                ) {
+                    Button(modifier = Modifier.fillMaxWidth(), onClick = {
+                        asset.qr?.let {
+                            viewModel.getQrCodeBitmap(it).run {
+                                saveMediaToStorage(this.asAndroidBitmap())
+                            }
+                        }
+                        navController.navigateUp()
+                    }) {
+                        Text(text = "Save QR")
+                    }
+                }
+            }
+        }
+    }
+
+    private fun saveMediaToStorage(bitmap: Bitmap) {
+        val filename = "${System.currentTimeMillis()}.jpg"
+        var fos: OutputStream? = null
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            contentResolver?.also { resolver ->
+                val contentValues = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
+                    put(MediaStore.MediaColumns.MIME_TYPE, "image/jpg")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES)
+                }
+                val imageUri: Uri? =
+                    resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+                fos = imageUri?.let { resolver.openOutputStream(it) }
+            }
+        } else {
+            val imagesDir =
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
+            val image = File(imagesDir, filename)
+            fos = FileOutputStream(image)
+        }
+        fos?.use {
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 75, it)
         }
     }
 
