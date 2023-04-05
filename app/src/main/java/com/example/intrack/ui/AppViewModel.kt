@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.intrack.model.Asset
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.AggregateSource
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.storage.FirebaseStorage
@@ -45,6 +46,12 @@ class AppViewModel : ViewModel() {
 
     private val _docMuteableLiveData = MutableLiveData<Asset>()
     val docMuteableLiveData: LiveData<Asset> = _docMuteableLiveData
+
+    private val _assetCount = MutableStateFlow<Long>(0)
+    val assetCount: StateFlow<Long> = _assetCount
+
+    private val _rentedAssetCount = MutableStateFlow<Long>(0)
+    val rentedAssetCount: StateFlow<Long> = _rentedAssetCount
 
     fun getQrCodeBitmap(content: String): ImageBitmap {
         val size = 320 //pixels
@@ -178,6 +185,29 @@ class AppViewModel : ViewModel() {
             db.collection("Users").document(requester).collection("Assets").document(name).delete()
             db.collection("Users").document(currentUser).collection("Requests").document(name)
                 .delete()
+        }
+    }
+
+    fun getMyAssetsCount() {
+        viewModelScope.launch(Dispatchers.IO) {
+            db.collection("Users").document(currentUser).collection("Assets").count()
+                .get(AggregateSource.SERVER).addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        _assetCount.value = task.result.count
+                    }
+                }
+        }
+    }
+
+    fun getRentAssetsCount() {
+        viewModelScope.launch(Dispatchers.IO) {
+            db.collection("Users").document(currentUser).collection("Assets")
+                .whereNotEqualTo("rented", 2).count().get(AggregateSource.SERVER)
+                .addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        _rentedAssetCount.value = task.result.count
+                    }
+                }
         }
     }
 

@@ -274,11 +274,11 @@ class MainActivity : ComponentActivity() {
                 ) == PackageManager.PERMISSION_GRANTED
             )
         }
-        val launcher =
-            rememberLauncherForActivityResult(contract = ActivityResultContracts.RequestPermission(),
-                onResult = { granted ->
-                    hasCamPermission = granted
-                })
+        val launcher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission(),
+            onResult = { granted ->
+                hasCamPermission = granted
+            })
         LaunchedEffect(key1 = true) {
             launcher.launch(android.Manifest.permission.CAMERA)
         }
@@ -796,6 +796,85 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun HomeContent(onScanQR: () -> Unit, onAddAsset: () -> Unit, onMyAssets: () -> Unit) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(16.dp)
+                    .aspectRatio(1f)
+                    .border(4.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.primary)
+                        .padding(8.dp), horizontalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "No. of Assets",
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier,
+                        color = Color.White
+                    )
+                }
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    val assetCount = viewModel.assetCount.collectAsState()
+                    LaunchedEffect(key1 = "totalAssets") {
+                        viewModel.getMyAssetsCount()
+                    }
+                    Text(
+                        text = "${assetCount.value}",
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 16.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 64.sp
+                    )
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(16.dp)
+                    .aspectRatio(1f)
+                    .border(4.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.primary)
+                        .padding(8.dp), horizontalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "Rent Assets",
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier,
+                        color = Color.White
+                    )
+                }
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    val rentAssetCount = viewModel.rentedAssetCount.collectAsState()
+                    LaunchedEffect(key1 = "rentAssets") {
+                        viewModel.getRentAssetsCount()
+                    }
+                    Text(
+                        text = "${rentAssetCount.value}",
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 16.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 64.sp
+                    )
+                }
+            }
+        }
         Button(
             onClick = onScanQR, modifier = Modifier
                 .fillMaxWidth()
@@ -818,10 +897,6 @@ class MainActivity : ComponentActivity() {
                 .padding(vertical = 16.dp)
         ) {
             Text(text = "My Assets")
-        }
-
-        Row() {
-
         }
     }
 
