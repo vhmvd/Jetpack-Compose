@@ -259,11 +259,11 @@ class MainActivity : ComponentActivity() {
                 ) == PackageManager.PERMISSION_GRANTED
             )
         }
-        val launcher =
-            rememberLauncherForActivityResult(contract = ActivityResultContracts.RequestPermission(),
-                onResult = { granted ->
-                    hasCamPermission = granted
-                })
+        val launcher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission(),
+            onResult = { granted ->
+                hasCamPermission = granted
+            })
         LaunchedEffect(key1 = true) {
             launcher.launch(android.Manifest.permission.CAMERA)
         }
@@ -402,19 +402,21 @@ class MainActivity : ComponentActivity() {
             composable(route = "add") { AddAssetScreen(navController) }
             composable(route = "save") { SaveAsset(navController) }
             composable(route = "store") {
-                MyAssets(navController, viewModel) { currentAsset = it }
+                MyAssets(navController, viewModel.assetsMuteableLiveData) { currentAsset = it }
             }
             composable(route = "detail") {
                 AssetDetail(currentAsset, navController, viewModel, contentResolver)
             }
             composable(route = "register") { Register(navController = navController) }
-            composable(route = "browser") { AllAssets(navController, viewModel) }
+            composable(route = "browser") {
+                LaunchedEffect(key1 = "getAllAssets") {
+                    viewModel.getAllAssets()
+                }
+                MyAssets(
+                    navController, viewModel.allAssetLiveData
+                ) { currentAsset = it }
+            }
         }
-    }
-
-    @Composable
-    fun AllAssets(navController: NavHostController, viewModel: AppViewModel) {
-
     }
 
     @Composable

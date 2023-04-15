@@ -20,7 +20,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import java.util.*
+import java.util.UUID
 
 
 class AppViewModel : ViewModel() {
@@ -37,6 +37,9 @@ class AppViewModel : ViewModel() {
 
     private val _assetsMuteableLiveData = MutableLiveData<List<Asset>>()
     val assetsMuteableLiveData: LiveData<List<Asset>> = _assetsMuteableLiveData
+
+    private val _allAssetLiveData = MutableLiveData<List<Asset>>()
+    val allAssetLiveData: LiveData<List<Asset>> = _allAssetLiveData
 
     private val _requestsLiveData = MutableLiveData<Boolean>()
     val requestsLiveData: LiveData<Boolean> = _requestsLiveData
@@ -208,6 +211,16 @@ class AppViewModel : ViewModel() {
                         _rentedAssetCount.value = task.result.count
                     }
                 }
+        }
+    }
+
+    fun getAllAssets() {
+        viewModelScope.launch(Dispatchers.IO) {
+            db.collectionGroup("Assets").get().addOnSuccessListener { querySnapshot ->
+                _allAssetLiveData.postValue(querySnapshot.mapNotNull {
+                    it?.toObject(Asset::class.java)
+                })
+            }
         }
     }
 

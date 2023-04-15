@@ -23,16 +23,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.LiveData
 import androidx.navigation.NavHostController
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import com.example.intrack.model.Asset
-import com.example.intrack.ui.AppViewModel
 import java.util.Locale
 
 @Composable
-fun MyAssets(navController: NavHostController, viewModel: AppViewModel, onAssetUpdate: (Asset) -> Unit) {
-    val assets = viewModel.assetsMuteableLiveData.observeAsState(initial = List(18) { Asset() })
+fun MyAssets(navController: NavHostController, assetList: LiveData<List<Asset>>, onAssetUpdate: (Asset) -> Unit) {
+    val assets = assetList.observeAsState(initial = List(18) { Asset() })
     Column(
         verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.CenterHorizontally,
